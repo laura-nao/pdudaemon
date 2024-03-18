@@ -50,9 +50,32 @@ class Servo(PDUDriver):
 
         super().__init__()
 
+    def handle(self, request, port_number):
+        log.debug("Driving PDU hostname: %s "
+                  "PORT: %s REQUEST: %s",
+                  self.hostname, port_number, request)
+        if request == "on":
+            self.port_on(port_number)
+        elif request == "off":
+            self.port_off(port_number)
+        elif request == "recovery":
+            self.port_interaction("recovery", port_number)
+        else:
+            log.debug("Unknown request to handle - oops")
+            raise UnknownCommandException(
+                "Driver doesn't know how to %s " % request
+            )
+        self._cleanup()
+
     def port_interaction(self, command, port_number):
-        if command not in ('on', 'off'):
+        if command not in ('on', 'off', 'recovery'):
             log.error("Unknown command %s." % (command))
+            return
+
+        if command == 'recovery':
+            log.debug("Setting power_state:rec")
+            with client.ServerProxy(self.remote_uri) as proxy:
+                proxy.set('power_state', 'rec')
             return
 
         for ctrl in self.ctrls:
